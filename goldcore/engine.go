@@ -1,4 +1,4 @@
-package main
+package goldcore
 
 type Game struct {
 	window GameWindow

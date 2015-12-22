@@ -31,7 +31,7 @@ const ModifierKeyCode = -1
 //as the handler or the set is active. It is up to the user to ensure syncronization
 //KeyboardHandlers only work as a part of a key set
 type KeyboardHandler struct {
-	keysPressed map[EventKey]KeyCommand
+	keysPressed map[EventKey]InputCommand
 	active      bool
 }
 
@@ -41,7 +41,7 @@ func (kH *KeyboardHandler) AddEventKey(eK EventKey, kC KeyCommand) {
 }
 
 //RemoveEventKey : Removes Event Key and its effects
-func (kH *keyboardHandler) RemoveEventKey(eK EventKey) {
+func (kH *KeyboardHandler) RemoveEventKey(eK EventKey) {
 	delete(kH.keysPressed, eK)
 }
 
@@ -122,7 +122,7 @@ func (kS *KeyboardSet) check(ek *EventKey) {
 type KeySets []KeyboardSet
 
 var numActiveKeySets = 0
-var keyboardSets = make(KeySets)
+var keyboardSets = make(KeySets, 0)
 
 //AddKeyboardSet Registers this set globally. You will no longer have to add
 //and re-add sets. Just enable and disable them
@@ -174,7 +174,7 @@ func CheckKeyboardSet(eK *EventKey) {
 
 //SetKeyPressed : Normally called from keyboard but you are allowed to fake it.
 //Sets flags for pressing
-func SetKeyPressed(event sf.EventKey) {
+func SetKeyPressed(event sf.EventKeyPressed) {
 	eK := EventKey{
 		Code:    event.Code,
 		Alt:     event.Alt != 0,
@@ -193,7 +193,7 @@ func SetKeyPressed(event sf.EventKey) {
 
 //SetKeyReleased : Normally called from keyboard but you are allowed to fake it.
 //Sets flags for pressing
-func SetKeyReleased(event sf.EventKey) {
+func SetKeyReleased(event sf.EventKeyReleased) {
 	eK := EventKey{
 		Code:    event.Code,
 		Alt:     event.Alt != 0,
@@ -207,25 +207,25 @@ func SetKeyReleased(event sf.EventKey) {
 	//TODO Feels wrong to call this function twice. Should profilie latter to see
 	//if there are fewer cache misses the second time than the first.
 	CheckKeyboardSet(eKModifier)
-	registerEventKey(event, false)
+	registerEventKey(eK, false)
 }
 
 //registerEventKey : internally sets key pressed
 //TODO, I should double check wheter all keys sync up. Esspecialy R&LShifts, Control, Alt
-func registerEventKey(eK sf.EventKey, pressed bool) {
-	globalKeyboard[eK.Code] = pressed
+func registerEventKey(eK EventKey) {
+	globalKeyboard[eK.Code] = eK.pressed
 	if eK.Alt != 0 {
-		globalKeyboard[eK.Alt] = pressed
+		globalKeyboard[eK.Alt] = eK.pressed
 	}
 	if eK.Control != 0 {
-		globalKeyboard[eK.Control] = pressed
+		globalKeyboard[eK.Control] = eK.pressed
 	}
 	if eK.Shift != 0 {
-		globalKeyboard[eK.Shift] = pressed
+		globalKeyboard[eK.Shift] = eK.pressed
 
 	}
 	if eK.System != 0 {
-		globalKeyboard[eK.System] = pressed
+		globalKeyboard[eK.System] = eK.pressed
 
 	}
 }
