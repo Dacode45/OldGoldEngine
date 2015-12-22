@@ -122,6 +122,7 @@ func PollEvent(){
     case: sf.EventTypeJoystickConnected:
     case: sf.EventTypeJoystickMoved:
     case: sf.EventTypeKeyPressed:
+			SetKeyPressed()
     case: sf.EventTypeKeyReleased:
     case: sf.EventTypeLostFocus:
     case: sf.EventTypeMouseButtonPressed:
