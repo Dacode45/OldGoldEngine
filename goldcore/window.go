@@ -8,6 +8,8 @@ import (
 )
 
 //WindowObserver : Implementations of this interface get an Window event and the event
+//Called on every window event. Decide for yourself if you handle it.
+//TODO Create a custom type instead of passing sf.Event
 type WindowObserver interface {
 	OnNotify(eventType sf.EventType, event sf.Event)
 }
@@ -17,15 +19,16 @@ type WindowHandler struct {
 	observers []WindowObserver
 }
 
+//AddObserver : Adds Window Observer to Observer list
 func (wH *WindowHandler) AddObserver(wO WindowObserver) {
-	wH.observers = append(observers, wO)
-	return &wO
+	wH.observers = append(wH.observers, wO)
 }
 
-func (wH *WindowHandler) RemoveObserver(wO *WindowObserver) {
+//RemoveObserver : Removes WindowObserver from observer list
+func (wH *WindowHandler) RemoveObserver(wO WindowObserver) {
 	for i, o := range wH.observers {
-		if &o == wO {
-			wH.observers = append(wH.observers[:i], wH.observers[i+1:])
+		if o == wO {
+			wH.observers = append(wH.observers[:i], wH.observers[i+1:]...)
 			return
 		}
 	}
@@ -54,7 +57,7 @@ func NewGameWindow(width, height uint, name string) *GameWindow {
 	}
 	runtime.LockOSThread()
 	gW := &GameWindow{
-		renderWindow: sf.NewRenderWindow(sf.VideoMode{Width: windowWidth, Height: windowHeight, BitsPerPixel: 32}, name, sf.StyleDefault, sf.DefaultContextSettings()),
+		renderWindow: sf.NewRenderWindow(sf.VideoMode{Width: width, Height: height, BitsPerPixel: 32}, name, sf.StyleDefault, sf.DefaultContextSettings()),
 	}
 	activeGameWindow = gW
 	return gW
@@ -64,55 +67,52 @@ func NewGameWindow(width, height uint, name string) *GameWindow {
 func (gW *GameWindow) PollEvent() {
 	for event := gW.renderWindow.PollEvent(); event != nil; event = gW.renderWindow.PollEvent() {
 		switch ev := event.(type) {
-		case sf.EventTypeClosed:
+		case sf.EventClosed:
 			gW.WindowHandler.notify(sf.EventTypeClosed, event)
 			gW.CloseWindow()
-		case sf.EventTypeLostFocus:
+		case sf.EventLostFocus:
 			gW.WindowHandler.notify(sf.EventTypeLostFocus, event)
-		case sf.EventTypeGainedFocus:
+		case sf.EventGainedFocus:
 			gW.WindowHandler.notify(sf.EventTypeGainedFocus, event)
-		case sf.EventTypeResized:
+		case sf.EventResized:
 			gW.WindowHandler.notify(sf.EventTypeResized, event)
-		case sf.EventTypeJoystickButtonPressed:
+		case sf.EventJoystickButtonPressed:
 			//TODO Implement
 			fmt.Println()
-		case sf.EventTypeJoystickButtonReleased:
+		case sf.EventJoystickButtonReleased:
 			//TODO Implement
 			fmt.Println()
-		case sf.EventTypeJoystickConnected:
+		case sf.EventJoystickConnected:
 			//TODO Implement
 			fmt.Println()
-		case sf.EventTypeJoystickDisconnected:
+		case sf.EventJoystickDisconnected:
 			//TODO Implement
 			fmt.Println()
-		case sf.EventTypeJoystickMoved:
+		case sf.EventJoystickMoved:
 			//TODO Implement
 			fmt.Println()
-		case sf.EventTypeKeyPressed:
+		case sf.EventKeyPressed:
+			go SetKeyPressed(ev)
+			fmt.Println()
+		case sf.EventKeyReleased:
+			go SetKeyReleased(ev)
+			fmt.Println()
+		case sf.EventTextEntered:
 			//TODO Implement
 			fmt.Println()
-		case sf.EventTypeKeyReleased:
+		case sf.EventMouseButtonPressed:
+			SetMouseButtonPressed(ev)
+		case sf.EventMouseButtonReleased:
+			SetMouseButtonReleased(ev)
+		case sf.EventMouseMoved:
+			globalMouseMovedHandler.SetMouseMove(ev)
+		case sf.EventMouseWheelMoved:
 			//TODO Implement
 			fmt.Println()
-		case sf.EventTypeTextEntered:
-			//TODO Implement
-			fmt.Println()
-		case sf.EventTypeMouseButtonPressed:
-			//TODO Implement
-			fmt.Println()
-		case sf.EventTypeMouseButtonReleased:
-			//TODO Implement
-			fmt.Println()
-		case sf.EventTypeMouseEntered:
-			//TODO Implement
-			fmt.Println()
-		case sf.EventTypeMouseLeft:
-			//TODO Implement
-			fmt.Println()
-		case sf.EventTypeMouseMoved:
-			//TODO Implement
-			fmt.Println()
-
+		case sf.EventMouseEntered:
+			gW.WindowHandler.notify(sf.EventTypeMouseEntered, event)
+		case sf.EventMouseLeft:
+			gW.WindowHandler.notify(sf.EventTypeMouseLeft, event)
 		}
 	}
 }
@@ -133,14 +133,14 @@ func (gW *GameWindow) SetActive(active bool) {
 //ResizeWindow resizes window by width and height
 func (gW *GameWindow) ResizeWindow(width, height uint) {
 	if gW.renderWindow != nil {
-		renderWindow.SetSize(sf.Vector2u{X: width, Y: height})
+		gW.renderWindow.SetSize(sf.Vector2u{X: width, Y: height})
 	}
 }
 
-//SetWindowName sets the name of the current window
-func (gW *GameWindow) SetWindowName(newName string) {
+//SetWindowTitle sets the name of the current window
+func (gW *GameWindow) SetWindowTitle(newName string) {
 	if gW.renderWindow != nil {
-		gW.windowName = newName
+		gW.renderWindow.SetTitle(newName)
 	}
 }
 
@@ -148,7 +148,7 @@ func (gW *GameWindow) SetWindowName(newName string) {
 func (gW *GameWindow) CloseWindow() {
 	gW.SetActive(false)
 	gW.renderWindow.Close()
-	if activeGameWindow == gw {
+	if activeGameWindow == gW {
 		activeGameWindow = nil
 	}
 }
