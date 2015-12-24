@@ -50,6 +50,12 @@ func (vec Vector2i) Equals(other Vector2i) bool {
 	return vec.X == other.X && vec.Y == other.Y
 }
 
+//SFVector2uToGEVector2i : SFML Vector2u to GoldEngine Vector2U
+//TODO Refactor name of these kinds of function to be SF_ToGE_
+func SFVector2uToGEVector2i(other sf.Vector2i) Vector2i {
+	return Vector2i{X: other.X, Y: other.Y}
+}
+
 /////////////////////////////////////
 // Vector2u
 
@@ -66,6 +72,12 @@ func (vec Vector2u) Minus(other Vector2u) Vector2u {
 //Equals : True if x and y of vector are equal
 func (vec Vector2u) Equals(other Vector2u) bool {
 	return vec.X == other.X && vec.Y == other.Y
+}
+
+//SFVector2uToGEVector2u : SFML Vector2u to GoldEngine Vector2U
+//TODO Refactor name of these kinds of function to be SF_ToGE_
+func SFVector2uToGEVector2u(other sf.Vector2u) Vector2u {
+	return Vector2u{X: other.X, Y: other.Y}
 }
 
 /////////////////////////////////////

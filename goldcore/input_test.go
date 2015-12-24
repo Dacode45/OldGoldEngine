@@ -173,7 +173,14 @@ func TestGlobalKeyboardSet(t *testing.T) {
 		handlerKeys[i] = sets[i%(limit/handlersPerSet)].AddHandler(handlers[i])
 	}
 	for i := 0; i < limit/handlersPerSet; i++ {
+		if sets[i].numActive != len(sets[i].keyboardHandlers) {
+			t.Errorf("Failed to Set Set::numActive. Expected %d Got %d", len(sets[i].keyboardHandlers), sets[i].numActive)
+		}
 		setKeys[i] = iS.keyboardDispatcher.AddKeyboardSet(sets[i])
+	}
+	//fmt.Println(limit / handlersPerSet)
+	if iS.keyboardDispatcher.numActiveKeySets != len(iS.keyboardDispatcher.keyboardSets) {
+		t.Errorf("Failed to Set KeyboardDispatcher::numActive. Expected %d Got %d", len(iS.keyboardDispatcher.keyboardSets), iS.keyboardDispatcher.numActiveKeySets)
 	}
 
 	//test sets
@@ -218,6 +225,7 @@ func TestGlobalKeyboardSet(t *testing.T) {
 		testEK := EventKeyToSFEventKeyPressed(eKs[i])
 		iS.SetKeyPressed(testEK)
 		t.Logf("Testing Key, %#v, Pressed\n", eKs[i])
+
 		if (i%(limit/handlersPerSet))%2 != 0 {
 
 			t.Log(<-cChan)
@@ -245,8 +253,15 @@ func TestGlobalKeyboardSet(t *testing.T) {
 		iS.keyboardDispatcher.SetKeyboardSetActive(s, true)
 
 	}
+	if iS.keyboardDispatcher.numActiveKeySets != len(iS.keyboardDispatcher.keyboardSets) {
+		t.Errorf("Failed to Set KeyboardDispatcher::numActive. Expected %d Got %d", len(iS.keyboardDispatcher.keyboardSets), iS.keyboardDispatcher.keyboardSets)
+
+	}
+	//fmt.Printf("%#v\n", iS.keyboardDispatcher)
 	for i := 0; i < limit/2; i++ {
 		testEK := EventKeyToSFEventKeyPressed(eKs[i])
+		//fmt.Println(len(sets))
+
 		iS.SetKeyPressed(testEK)
 		t.Logf("Testing Key, %#v, Pressed\n", eKs[i])
 		t.Log(<-cChan)
@@ -638,6 +653,39 @@ func TestMouseWheelMovedHandler(t *testing.T) {
 	for _, c := range closures {
 		if !c.State.Equals(Vector2i{5, 5}) {
 			t.Errorf("MouseMoved Failed. Expected %#v got %#v", Vector2i{5, 5}, c.State)
+		}
+	}
+}
+
+type TextEnteredStruct struct {
+	State  rune
+	toCall func()
+}
+
+func (mS *TextEnteredStruct) OnTextEntered(event EventTextEntered) {
+	//fmt.Println("HI")
+	mS.State = event.Char
+	mS.toCall()
+}
+
+func TestTextEnteredHandler(t *testing.T) {
+	var wg sync.WaitGroup
+	closures := make([]TextEnteredStruct, 10)
+	mH := NewTextEnteredHandler()
+	closure := func() {
+		wg.Done()
+	}
+	for i := range closures {
+		closures[i] = TextEnteredStruct{toCall: closure}
+		mH.AddTextEnteredObserver(&closures[i])
+	}
+
+	wg.Add(10)
+	mH.notify(EventTextEntered{Char: 'a'})
+	wg.Wait()
+	for _, c := range closures {
+		if !(c.State == 'a') {
+			t.Errorf("MouseMoved Failed. Expected %#v got %#v", 'a', c.State)
 		}
 	}
 }

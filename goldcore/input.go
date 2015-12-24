@@ -56,7 +56,8 @@ func (kH *KeyboardHandler) RemoveEventKey(eK EventKey) {
 func (kH *KeyboardHandler) check(eK *EventKey) {
 	if cmd, ok := kH.keysPressed[*eK]; ok {
 		//fmt.Println("hello")
-		cmd()
+
+		go cmd()
 	}
 }
 
@@ -159,7 +160,7 @@ type KeyboardDispatcher struct {
 
 //NewKeyboardDispatcher : Creates a new KeyboardDispatcher
 func NewKeyboardDispatcher() KeyboardDispatcher {
-	return KeyboardDispatcher{keyboardSets: make([]KeyboardSet, 1)}
+	return KeyboardDispatcher{keyboardSets: make([]KeyboardSet, 0)}
 }
 
 //AddKeyboardSet Registers this set globally. You will no longer have to add
@@ -172,6 +173,7 @@ func (kD *KeyboardDispatcher) AddKeyboardSet(kS KeyboardSet) (key uint) {
 	kD.nextKeySetIndex++
 	kD.keyboardSets[kD.numActiveKeySets] = kS
 	kD.numActiveKeySets++
+
 	return kS.key
 }
 
@@ -214,7 +216,9 @@ func (kD *KeyboardDispatcher) SetKeyboardSetActive(key uint, active bool) {
 //CheckKeyboardSet : Calls the keybaord command for all associated event keys
 //Passes pointer to event to the actual handlers.
 func (kD *KeyboardDispatcher) CheckKeyboardSet(eK *EventKey) {
+
 	for i := 0; i < kD.numActiveKeySets; i++ {
+
 		kD.keyboardSets[i].check(eK)
 	}
 }
@@ -418,7 +422,8 @@ type MouseButtonDispatcher struct {
 
 //NewMouseButtonDispatcer : Create a new MouseButtonDispatcher
 func NewMouseButtonDispatcer() MouseButtonDispatcher {
-	return MouseButtonDispatcher{mouseButtonSets: make([]MouseButtonSet, 1)}
+	//DONOT CHANGE INITIAL SIZE FROM ZERO
+	return MouseButtonDispatcher{mouseButtonSets: make([]MouseButtonSet, 0)}
 }
 
 //AddMouseButtonSet Registers this set globally. You will no longer have to add
@@ -592,6 +597,64 @@ func (mH *MouseWheelMovedHandler) notify(eM EventMouseWheelMoved) {
 	}
 }
 
+///////////////////////////////////////////////
+//TextEntered
+
+//Uses Observer rather than the Command Pattern
+
+//EventTextEntered : Called once text entered
+type EventTextEntered struct {
+	Char rune //value of the rune
+}
+
+//ToSFML : Converts EventTextEntered to the sfml version
+//TODO : Refactor all code to fit this naming scheme
+func (eM *EventTextEntered) ToSFML() sf.EventTextEntered {
+	return sf.EventTextEntered{Char: eM.Char}
+}
+
+//SFEventTextEnteredToEventTextEntered sfml to text entered
+func SFEventTextEnteredToEventTextEntered(eM sf.EventTextEntered) EventTextEntered {
+	return EventTextEntered{Char: eM.Char}
+}
+
+//TextEnteredObserver : what is called on text entered
+type TextEnteredObserver interface {
+	OnTextEntered(EventTextEntered)
+}
+
+//TextEnteredHandler : TODO implement
+type TextEnteredHandler struct {
+	observers []TextEnteredObserver
+}
+
+//NewTextEnteredHandler : New NewTextEnteredHandler
+func NewTextEnteredHandler() TextEnteredHandler {
+	return TextEnteredHandler{observers: make([]TextEnteredObserver, 0)}
+}
+
+//AddTextEnteredObserver : Adds command
+func (mH *TextEnteredHandler) AddTextEnteredObserver(mO TextEnteredObserver) {
+	mH.observers = append(mH.observers, mO)
+}
+
+//RemoveTextEnteredObserver : removes command
+func (mH *TextEnteredHandler) RemoveTextEnteredObserver(mO TextEnteredObserver) {
+	for i, o := range mH.observers {
+		if o == mO {
+			mH.observers = append(mH.observers[:i], mH.observers[i+1:]...)
+			return
+		}
+	}
+}
+
+//notify : Tells all observers everything
+func (mH *TextEnteredHandler) notify(eM EventTextEntered) {
+	for _, o := range mH.observers {
+		go o.OnTextEntered(eM)
+	}
+}
+
 //InputSystem Has dispatchers for mouse and keyboard as well as notifies observers
 //for mouse scroll and others
 type InputSystem struct {
@@ -599,6 +662,7 @@ type InputSystem struct {
 	mouseButtonDispatcher  MouseButtonDispatcher
 	mouseWheelMovedHandler MouseWheelMovedHandler
 	mouseMovedHandler      MouseMovedHandler
+	textEnteredHandler     TextEnteredHandler
 }
 
 //NewInputSystem : Creates a New Input System
@@ -608,12 +672,14 @@ func NewInputSystem() InputSystem {
 		mouseButtonDispatcher:  NewMouseButtonDispatcer(),
 		mouseWheelMovedHandler: NewMouseWheelMovedHandler(),
 		mouseMovedHandler:      NewMouseMovedHandler(),
+		textEnteredHandler:     NewTextEnteredHandler(),
 	}
 }
 
 //SetKeyPressed : Normally called from keyboard but you are allowed to fake it.
 //Sets flags for pressing
 func (iS *InputSystem) SetKeyPressed(event sf.EventKeyPressed) {
+
 	eK := SFEventKeyPressedToEventKey(event)
 	eKModifier := eK
 	eKModifier.Code = ModifierKeyCode
@@ -666,4 +732,9 @@ func (iS *InputSystem) SetMouseMove(eM sf.EventMouseMoved) {
 //SetMouseWheelMove : Sets the Mouse Move
 func (iS *InputSystem) SetMouseWheelMove(eM sf.EventMouseWheelMoved) {
 	iS.mouseWheelMovedHandler.notify(SFEventMouseWheelMovedToEventMouseMoved(eM))
+}
+
+//SetTextEntered : Sets text entered
+func (iS *InputSystem) SetTextEntered(eT sf.EventTextEntered) {
+	iS.textEnteredHandler.notify(SFEventTextEnteredToEventTextEntered(eT))
 }
