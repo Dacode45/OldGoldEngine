@@ -34,6 +34,7 @@ func TestKeyboardHandler(t *testing.T) {
 }
 
 func TestKeyboardSet(t *testing.T) {
+
 	closure1 := false
 	closure2 := false
 	closure3 := false
@@ -148,6 +149,7 @@ func (cS *ClosureStruct) String() string {
 	return fmt.Sprintf("State : %d, NumChanges %d", cS.State, cS.NumChanges)
 }
 func TestGlobalKeyboardSet(t *testing.T) {
+	iS := NewInputSystem()
 	limit := 2 * int(KeyCount)
 	eKs := make([]EventKey, limit)
 	//Divide list into pressed and not pressed
@@ -171,18 +173,15 @@ func TestGlobalKeyboardSet(t *testing.T) {
 		handlerKeys[i] = sets[i%(limit/handlersPerSet)].AddHandler(handlers[i])
 	}
 	for i := 0; i < limit/handlersPerSet; i++ {
-		setKeys[i] = AddKeyboardSet(sets[i])
+		setKeys[i] = iS.keyboardDispatcher.AddKeyboardSet(sets[i])
 	}
 
-	t.Logf("KeyCount: %d, Num Closures: %d, Num Handlers: %d, Num Sets: %d\n"+
-		"Num Active Sets: %d, Num Global Sets %d",
-		int(KeyCount), len(closures), len(handlers), len(sets), numActiveKeySets, len(keyboardSets))
 	//test sets
 	//First Check All Keys work
 	//pressed
 	for i := 0; i < limit/2; i++ {
 		testEK := EventKeyToSFEventKeyPressed(eKs[i])
-		SetKeyPressed(testEK)
+		iS.SetKeyPressed(testEK)
 		t.Logf("Testing Key, %#v, Pressed\n", eKs[i])
 		t.Log(<-cChan)
 		//Check if the registered closures were called
@@ -196,7 +195,7 @@ func TestGlobalKeyboardSet(t *testing.T) {
 	//Unpressed
 	for i := limit / 2; i < limit; i++ {
 		testEK := EventKeyToSFEventKeyReleased(eKs[i])
-		SetKeyReleased(testEK)
+		iS.SetKeyReleased(testEK)
 		t.Logf("Testing Key, %#v, Released\n", eKs[i])
 		t.Log(<-cChan)
 		//Check if the registered closures were called
@@ -211,13 +210,13 @@ func TestGlobalKeyboardSet(t *testing.T) {
 	for i, s := range setKeys {
 		if i%2 == 0 {
 
-			SetKeyboardSetActive(s, false)
+			iS.keyboardDispatcher.SetKeyboardSetActive(s, false)
 		}
 	}
 
 	for i := 0; i < limit/2; i++ {
 		testEK := EventKeyToSFEventKeyPressed(eKs[i])
-		SetKeyPressed(testEK)
+		iS.SetKeyPressed(testEK)
 		t.Logf("Testing Key, %#v, Pressed\n", eKs[i])
 		if (i%(limit/handlersPerSet))%2 != 0 {
 
@@ -243,12 +242,12 @@ func TestGlobalKeyboardSet(t *testing.T) {
 	//Reactivate Half of the sets and try again
 	for _, s := range setKeys {
 
-		SetKeyboardSetActive(s, true)
+		iS.keyboardDispatcher.SetKeyboardSetActive(s, true)
 
 	}
 	for i := 0; i < limit/2; i++ {
 		testEK := EventKeyToSFEventKeyPressed(eKs[i])
-		SetKeyPressed(testEK)
+		iS.SetKeyPressed(testEK)
 		t.Logf("Testing Key, %#v, Pressed\n", eKs[i])
 		t.Log(<-cChan)
 		//Check if the registered closures were called
@@ -263,12 +262,12 @@ func TestGlobalKeyboardSet(t *testing.T) {
 	for i, s := range setKeys {
 		if i%2 == 0 {
 
-			RemoveKeyboardSet(s)
+			iS.keyboardDispatcher.RemoveKeyboardSet(s)
 		}
 	}
 	for i := 0; i < limit/2; i++ {
 		testEK := EventKeyToSFEventKeyPressed(eKs[i])
-		SetKeyPressed(testEK)
+		iS.SetKeyPressed(testEK)
 		t.Logf("Testing Key, %#v, Pressed\n", eKs[i])
 		if (i%(limit/handlersPerSet))%2 != 0 {
 
@@ -434,6 +433,7 @@ func (cS *MouseStruct) Reset() {
 }
 
 func TestGlobalMouseButtonSet(t *testing.T) {
+	iS := NewInputSystem()
 	limit := 2 * int(MouseButtonCount)
 	eMs := make([]EventMouseButton, limit)
 	//Divide list into pressed and not pressed
@@ -457,18 +457,15 @@ func TestGlobalMouseButtonSet(t *testing.T) {
 		handlerKeys[i] = sets[i%(limit/handlersPerSet)].AddHandler(handlers[i])
 	}
 	for i := 0; i < limit/handlersPerSet; i++ {
-		setKeys[i] = AddMouseButtonSet(sets[i])
+		setKeys[i] = iS.mouseButtonDispatcher.AddMouseButtonSet(sets[i])
 	}
 
-	t.Logf("KeyCount: %d, Num buttons: %d, Num Handlers: %d, Num Sets: %d\n"+
-		"Num Active Sets: %d, Num Global Sets %d",
-		int(KeyCount), len(buttons), len(handlers), len(sets), numActiveKeySets, len(mouseButtonSets))
 	//test sets
 	//First Check All Keys work
 	//pressed
 	for i := 0; i < limit/2; i++ {
 		testES := EventMouseButtonToSFMouseButtonPressed(eMs[i], 1, 1)
-		SetMouseButtonPressed(testES)
+		iS.SetMouseButtonPressed(testES)
 		t.Logf("Testing Key, %#v, Pressed\n", eMs[i])
 		t.Log(<-cChan)
 		//Check if the registered buttons were called
@@ -482,7 +479,7 @@ func TestGlobalMouseButtonSet(t *testing.T) {
 	//Unpressed
 	for i := limit / 2; i < limit; i++ {
 		testEK := EventMouseButtonToSFMouseButtonReleased(eMs[i], 1, 1)
-		SetMouseButtonReleased(testEK)
+		iS.SetMouseButtonReleased(testEK)
 		t.Logf("Testing Key, %#v, Released\n", eMs[i])
 		t.Log(<-cChan)
 		//Check if the registered buttons were called
@@ -497,13 +494,13 @@ func TestGlobalMouseButtonSet(t *testing.T) {
 	for i, s := range setKeys {
 		if i%2 == 0 {
 
-			SetMouseButtonSetActive(s, false)
+			iS.mouseButtonDispatcher.SetMouseButtonSetActive(s, false)
 		}
 	}
 
 	for i := 0; i < limit/2; i++ {
 		testES := EventMouseButtonToSFMouseButtonPressed(eMs[i], 1, 1)
-		SetMouseButtonPressed(testES)
+		iS.SetMouseButtonPressed(testES)
 		t.Logf("Testing Key, %#v, Pressed\n", eMs[i])
 		if (i%(limit/handlersPerSet))%2 != 0 {
 
@@ -529,12 +526,12 @@ func TestGlobalMouseButtonSet(t *testing.T) {
 	//Reactivate Half of the sets and try again
 	for _, s := range setKeys {
 
-		SetMouseButtonSetActive(s, true)
+		iS.mouseButtonDispatcher.SetMouseButtonSetActive(s, true)
 
 	}
 	for i := 0; i < limit/2; i++ {
 		testES := EventMouseButtonToSFMouseButtonPressed(eMs[i], 1, 1)
-		SetMouseButtonPressed(testES)
+		iS.SetMouseButtonPressed(testES)
 		t.Logf("Testing Key, %#v, Pressed\n", eMs[i])
 		t.Log(<-cChan)
 		//Check if the registered buttons were called
@@ -549,12 +546,12 @@ func TestGlobalMouseButtonSet(t *testing.T) {
 	for i, s := range setKeys {
 		if i%2 == 0 {
 
-			RemoveMouseButtonSet(s)
+			iS.mouseButtonDispatcher.RemoveMouseButtonSet(s)
 		}
 	}
 	for i := 0; i < limit/2; i++ {
 		testES := EventMouseButtonToSFMouseButtonPressed(eMs[i], 1, 1)
-		SetMouseButtonPressed(testES)
+		iS.SetMouseButtonPressed(testES)
 		t.Logf("Testing Key, %#v, Pressed\n", eMs[i])
 		if (i%(limit/handlersPerSet))%2 != 0 {
 

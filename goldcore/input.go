@@ -56,7 +56,7 @@ func (kH *KeyboardHandler) RemoveEventKey(eK EventKey) {
 func (kH *KeyboardHandler) check(eK *EventKey) {
 	if cmd, ok := kH.keysPressed[*eK]; ok {
 		//fmt.Println("hello")
-		go cmd()
+		cmd()
 	}
 }
 
@@ -150,34 +150,39 @@ func (kS *KeyboardSet) check(ek *EventKey) {
 	}
 }
 
-//KeySets : array of keyboardSets.
-type KeySets []KeyboardSet
+//KeyboardDispatcher : Handles keyboardSets for an InputSystem
+type KeyboardDispatcher struct {
+	numActiveKeySets int
+	nextKeySetIndex  uint
+	keyboardSets     []KeyboardSet
+}
 
-var numActiveKeySets = 0
-var nextKeySetIndex uint
-var keyboardSets = make(KeySets, 0)
+//NewKeyboardDispatcher : Creates a new KeyboardDispatcher
+func NewKeyboardDispatcher() KeyboardDispatcher {
+	return KeyboardDispatcher{keyboardSets: make([]KeyboardSet, 1)}
+}
 
 //AddKeyboardSet Registers this set globally. You will no longer have to add
 //and re-add sets. Just enable and disable them
-func AddKeyboardSet(kS KeyboardSet) (key uint) {
+func (kD *KeyboardDispatcher) AddKeyboardSet(kS KeyboardSet) (key uint) {
 
-	keyboardSets = append(keyboardSets, KeyboardSet{})
-	copy(keyboardSets[numActiveKeySets+1:], keyboardSets[numActiveKeySets:])
-	kS.key = nextKeySetIndex
-	nextKeySetIndex++
-	keyboardSets[numActiveKeySets] = kS
-	numActiveKeySets++
+	kD.keyboardSets = append(kD.keyboardSets, KeyboardSet{})
+	copy(kD.keyboardSets[kD.numActiveKeySets+1:], kD.keyboardSets[kD.numActiveKeySets:])
+	kS.key = kD.nextKeySetIndex
+	kD.nextKeySetIndex++
+	kD.keyboardSets[kD.numActiveKeySets] = kS
+	kD.numActiveKeySets++
 	return kS.key
 }
 
 //RemoveKeyboardSet : Unregister KeyboardSet globally
-func RemoveKeyboardSet(key uint) {
-	for i, k := range keyboardSets {
+func (kD *KeyboardDispatcher) RemoveKeyboardSet(key uint) {
+	for i, k := range kD.keyboardSets {
 		if k.key == key {
-			keyboardSets = append(keyboardSets[:i], keyboardSets[i+1:]...)
-			if i < numActiveKeySets {
+			kD.keyboardSets = append(kD.keyboardSets[:i], kD.keyboardSets[i+1:]...)
+			if i < kD.numActiveKeySets {
 
-				numActiveKeySets--
+				kD.numActiveKeySets--
 			}
 			return
 		}
@@ -185,20 +190,20 @@ func RemoveKeyboardSet(key uint) {
 }
 
 //SetKeyboardSetActive : Enable or disable KeybaordSet
-func SetKeyboardSetActive(key uint, active bool) {
-	for i, k := range keyboardSets {
+func (kD *KeyboardDispatcher) SetKeyboardSetActive(key uint, active bool) {
+	for i, k := range kD.keyboardSets {
 		if k.key == key {
 			//only do something if different
-			if (i < numActiveKeySets) != active {
-				if !(i < numActiveKeySets) { //if inactive put it in the active part of the array
-					temp := keyboardSets[numActiveKeySets]
-					keyboardSets[numActiveKeySets] = k
-					keyboardSets[i] = temp
-					numActiveKeySets++
+			if (i < kD.numActiveKeySets) != active {
+				if !(i < kD.numActiveKeySets) { //if inactive put it in the active part of the array
+					temp := kD.keyboardSets[kD.numActiveKeySets]
+					kD.keyboardSets[kD.numActiveKeySets] = k
+					kD.keyboardSets[i] = temp
+					kD.numActiveKeySets++
 				} else { //inactive move to end of array
-					keyboardSets = append(keyboardSets[:i], keyboardSets[i+1:]...)
-					keyboardSets = append(keyboardSets, k)
-					numActiveKeySets--
+					kD.keyboardSets = append(kD.keyboardSets[:i], kD.keyboardSets[i+1:]...)
+					kD.keyboardSets = append(kD.keyboardSets, k)
+					kD.numActiveKeySets--
 				}
 			}
 			return
@@ -208,41 +213,10 @@ func SetKeyboardSetActive(key uint, active bool) {
 
 //CheckKeyboardSet : Calls the keybaord command for all associated event keys
 //Passes pointer to event to the actual handlers.
-func CheckKeyboardSet(eK *EventKey) {
-	for i := 0; i < numActiveKeySets; i++ {
-		keyboardSets[i].check(eK)
+func (kD *KeyboardDispatcher) CheckKeyboardSet(eK *EventKey) {
+	for i := 0; i < kD.numActiveKeySets; i++ {
+		kD.keyboardSets[i].check(eK)
 	}
-}
-
-//SetKeyPressed : Normally called from keyboard but you are allowed to fake it.
-//Sets flags for pressing
-func SetKeyPressed(event sf.EventKeyPressed) {
-	eK := SFEventKeyPressedToEventKey(event)
-	eKModifier := eK
-	eKModifier.Code = ModifierKeyCode
-	//go func() {
-	CheckKeyboardSet(&eK)
-	//TODO Feels wrong to call this function twice. Should profilie latter to see
-	//if there are fewer cache misses the second time than the first.
-	CheckKeyboardSet(&eKModifier)
-	//}()
-}
-
-//SetKeyReleased : Normally called from keyboard but you are allowed to fake it.
-//Sets flags for pressing
-func SetKeyReleased(event sf.EventKeyReleased) {
-	eK := SFEventKeyReleasedToEventKey(event)
-	eKModifier := eK
-	eKModifier.Code = ModifierKeyCode
-	//TODO I've pretty much set a limit that the number of inputs processed is
-	//O(numActiveKeySets*E[active handlers per set])
-	//is this worth putting in a go function. Bet
-	//go func() {
-	CheckKeyboardSet(&eK)
-	//TODO Feels wrong to call this function twice. Should profilie latter to see
-	//if there are fewer cache misses the second time than the first.
-	CheckKeyboardSet(&eKModifier)
-	//}()
 }
 
 //SFEventKeyPressedToEventKey : Converts Sf Key to Event Key
@@ -435,31 +409,39 @@ func (mS *MouseButtonSet) check(ek *EventMouseButton, x, y int) {
 	}
 }
 
-var numActiveMouseButtonSets = 0
-var nextMouseButtonSetIndex uint
-var mouseButtonSets = make([]MouseButtonSet, 0)
+//MouseButtonDispatcher : Handles MouseButtons for an Input System
+type MouseButtonDispatcher struct {
+	numActiveMouseButtonSets int
+	nextMouseButtonSetIndex  uint
+	mouseButtonSets          []MouseButtonSet
+}
+
+//NewMouseButtonDispatcer : Create a new MouseButtonDispatcher
+func NewMouseButtonDispatcer() MouseButtonDispatcher {
+	return MouseButtonDispatcher{mouseButtonSets: make([]MouseButtonSet, 1)}
+}
 
 //AddMouseButtonSet Registers this set globally. You will no longer have to add
 //and re-add sets. Just enable and disable them
-func AddMouseButtonSet(mS MouseButtonSet) (key uint) {
+func (mD *MouseButtonDispatcher) AddMouseButtonSet(mS MouseButtonSet) (key uint) {
 
-	mouseButtonSets = append(mouseButtonSets, MouseButtonSet{})
-	copy(mouseButtonSets[numActiveMouseButtonSets+1:], mouseButtonSets[numActiveMouseButtonSets:])
-	mS.key = nextMouseButtonSetIndex
-	nextMouseButtonSetIndex++
-	mouseButtonSets[numActiveMouseButtonSets] = mS
-	numActiveMouseButtonSets++
+	mD.mouseButtonSets = append(mD.mouseButtonSets, MouseButtonSet{})
+	copy(mD.mouseButtonSets[mD.numActiveMouseButtonSets+1:], mD.mouseButtonSets[mD.numActiveMouseButtonSets:])
+	mS.key = mD.nextMouseButtonSetIndex
+	mD.nextMouseButtonSetIndex++
+	mD.mouseButtonSets[mD.numActiveMouseButtonSets] = mS
+	mD.numActiveMouseButtonSets++
 	return mS.key
 }
 
 //RemoveMouseButtonSet : Unregister MouseButtonSet globally
-func RemoveMouseButtonSet(key uint) {
-	for i, k := range mouseButtonSets {
+func (mD *MouseButtonDispatcher) RemoveMouseButtonSet(key uint) {
+	for i, k := range mD.mouseButtonSets {
 		if k.key == key {
-			mouseButtonSets = append(mouseButtonSets[:i], mouseButtonSets[i+1:]...)
-			if i < numActiveMouseButtonSets {
+			mD.mouseButtonSets = append(mD.mouseButtonSets[:i], mD.mouseButtonSets[i+1:]...)
+			if i < mD.numActiveMouseButtonSets {
 
-				numActiveMouseButtonSets--
+				mD.numActiveMouseButtonSets--
 			}
 			return
 		}
@@ -467,20 +449,20 @@ func RemoveMouseButtonSet(key uint) {
 }
 
 //SetMouseButtonSetActive : Enable or disable KeybaordSet
-func SetMouseButtonSetActive(key uint, active bool) {
-	for i, k := range mouseButtonSets {
+func (mD *MouseButtonDispatcher) SetMouseButtonSetActive(key uint, active bool) {
+	for i, k := range mD.mouseButtonSets {
 		if k.key == key {
 			//only do something if different
-			if (i < numActiveMouseButtonSets) != active {
-				if !(i < numActiveMouseButtonSets) { //if inactive put it in the active part of the array
-					temp := mouseButtonSets[numActiveMouseButtonSets]
-					mouseButtonSets[numActiveMouseButtonSets] = k
-					mouseButtonSets[i] = temp
-					numActiveMouseButtonSets++
+			if (i < mD.numActiveMouseButtonSets) != active {
+				if !(i < mD.numActiveMouseButtonSets) { //if inactive put it in the active part of the array
+					temp := mD.mouseButtonSets[mD.numActiveMouseButtonSets]
+					mD.mouseButtonSets[mD.numActiveMouseButtonSets] = k
+					mD.mouseButtonSets[i] = temp
+					mD.numActiveMouseButtonSets++
 				} else { //inactive move to end of array
-					mouseButtonSets = append(mouseButtonSets[:i], mouseButtonSets[i+1:]...)
-					mouseButtonSets = append(mouseButtonSets, k)
-					numActiveMouseButtonSets--
+					mD.mouseButtonSets = append(mD.mouseButtonSets[:i], mD.mouseButtonSets[i+1:]...)
+					mD.mouseButtonSets = append(mD.mouseButtonSets, k)
+					mD.numActiveMouseButtonSets--
 				}
 			}
 			return
@@ -490,26 +472,10 @@ func SetMouseButtonSetActive(key uint, active bool) {
 
 //CheckMouseButtonSet : Calls the keybaord command for all associated event keys
 //Passes pointer to event to the actual handlers.
-func CheckMouseButtonSet(eM *EventMouseButton, x, y int) {
-	for i := 0; i < numActiveMouseButtonSets; i++ {
-		mouseButtonSets[i].check(eM, x, y)
+func (mD *MouseButtonDispatcher) CheckMouseButtonSet(eM *EventMouseButton, x, y int) {
+	for i := 0; i < mD.numActiveMouseButtonSets; i++ {
+		mD.mouseButtonSets[i].check(eM, x, y)
 	}
-}
-
-//SetMouseButtonPressed : Normally called from mouseButton but you are allowed to fake it.
-//Sets flags for pressing
-func SetMouseButtonPressed(event sf.EventMouseButtonPressed) {
-	eM := SFMouseButtonPressedToEventMouseButton(event)
-	CheckMouseButtonSet(&eM, event.X, event.Y)
-
-}
-
-//SetMouseButtonReleased : Normally called from mouseButton but you are allowed to fake it.
-//Sets flags for pressing
-func SetMouseButtonReleased(event sf.EventMouseButtonReleased) {
-	eM := SFMouseButtonReleasedToEventMouseButton(event)
-	CheckMouseButtonSet(&eM, event.X, event.Y)
-
 }
 
 //////////////////////////////////////////////////////////
@@ -566,13 +532,6 @@ func (mH *MouseMovedHandler) notify(eM EventMouseMoved) {
 	for _, o := range mH.observers {
 		go o.OnMouseMove(eM)
 	}
-}
-
-var globalMouseMovedHandler = MouseMovedHandler{observers: make([]MouseMoveObserver, 0)}
-
-//SetMouseMove : Sets the Mouse Move
-func (mH *MouseMovedHandler) SetMouseMove(eM sf.EventMouseMoved) {
-	globalMouseMovedHandler.notify(SFEventMouseMovedToEventMouseMoved(eM))
 }
 
 ///////////////////////////////////////////////
@@ -633,9 +592,78 @@ func (mH *MouseWheelMovedHandler) notify(eM EventMouseWheelMoved) {
 	}
 }
 
-var globalMouseWheelMovedHandler = MouseWheelMovedHandler{observers: make([]MouseWheelMoveObserver, 0)}
+//InputSystem Has dispatchers for mouse and keyboard as well as notifies observers
+//for mouse scroll and others
+type InputSystem struct {
+	keyboardDispatcher     KeyboardDispatcher
+	mouseButtonDispatcher  MouseButtonDispatcher
+	mouseWheelMovedHandler MouseWheelMovedHandler
+	mouseMovedHandler      MouseMovedHandler
+}
+
+//NewInputSystem : Creates a New Input System
+func NewInputSystem() InputSystem {
+	return InputSystem{
+		keyboardDispatcher:     NewKeyboardDispatcher(),
+		mouseButtonDispatcher:  NewMouseButtonDispatcer(),
+		mouseWheelMovedHandler: NewMouseWheelMovedHandler(),
+		mouseMovedHandler:      NewMouseMovedHandler(),
+	}
+}
+
+//SetKeyPressed : Normally called from keyboard but you are allowed to fake it.
+//Sets flags for pressing
+func (iS *InputSystem) SetKeyPressed(event sf.EventKeyPressed) {
+	eK := SFEventKeyPressedToEventKey(event)
+	eKModifier := eK
+	eKModifier.Code = ModifierKeyCode
+	//go func() {
+	iS.keyboardDispatcher.CheckKeyboardSet(&eK)
+	//TODO Feels wrong to call this function twice. Should profilie latter to see
+	//if there are fewer cache misses the second time than the first.
+	iS.keyboardDispatcher.CheckKeyboardSet(&eKModifier)
+	//}()
+}
+
+//SetKeyReleased : Normally called from keyboard but you are allowed to fake it.
+//Sets flags for pressing
+func (iS *InputSystem) SetKeyReleased(event sf.EventKeyReleased) {
+	eK := SFEventKeyReleasedToEventKey(event)
+	eKModifier := eK
+	eKModifier.Code = ModifierKeyCode
+	//TODO I've pretty much set a limit that the number of inputs processed is
+	//O(numActiveKeySets*E[active handlers per set])
+	//is this worth putting in a go function. Bet
+	//go func() {
+	iS.keyboardDispatcher.CheckKeyboardSet(&eK)
+	//TODO Feels wrong to call this function twice. Should profilie latter to see
+	//if there are fewer cache misses the second time than the first.
+	iS.keyboardDispatcher.CheckKeyboardSet(&eKModifier)
+	//}()
+}
+
+//SetMouseButtonPressed : Normally called from mouseButton but you are allowed to fake it.
+//Sets flags for pressing
+func (iS *InputSystem) SetMouseButtonPressed(event sf.EventMouseButtonPressed) {
+	eM := SFMouseButtonPressedToEventMouseButton(event)
+	iS.mouseButtonDispatcher.CheckMouseButtonSet(&eM, event.X, event.Y)
+
+}
+
+//SetMouseButtonReleased : Normally called from mouseButton but you are allowed to fake it.
+//Sets flags for pressing
+func (iS *InputSystem) SetMouseButtonReleased(event sf.EventMouseButtonReleased) {
+	eM := SFMouseButtonReleasedToEventMouseButton(event)
+	iS.mouseButtonDispatcher.CheckMouseButtonSet(&eM, event.X, event.Y)
+
+}
 
 //SetMouseMove : Sets the Mouse Move
-func (mH *MouseWheelMovedHandler) SetMouseMove(eM sf.EventMouseWheelMoved) {
-	globalMouseWheelMovedHandler.notify(SFEventMouseWheelMovedToEventMouseMoved(eM))
+func (iS *InputSystem) SetMouseMove(eM sf.EventMouseMoved) {
+	iS.mouseMovedHandler.notify(SFEventMouseMovedToEventMouseMoved(eM))
+}
+
+//SetMouseWheelMove : Sets the Mouse Move
+func (iS *InputSystem) SetMouseWheelMove(eM sf.EventMouseWheelMoved) {
+	iS.mouseWheelMovedHandler.notify(SFEventMouseWheelMovedToEventMouseMoved(eM))
 }
