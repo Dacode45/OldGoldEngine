@@ -283,6 +283,22 @@ type EventMouseButton struct {
 	Clicked bool        //< Whether Button is Pressed or Released
 }
 
+//EventMouseButtonWrapper : Wrapper around EventMouseButton for Messaging System
+type EventMouseButtonWrapper struct {
+	Pos              Vector2i
+	EventMouseButton EventMouseButton
+}
+
+//ToSFMLPressed : To sf.EventMouseButtonPressed
+func (eM EventMouseButtonWrapper) ToSFMLPressed() sf.EventMouseButtonPressed {
+	return sf.EventMouseButtonPressed{Button: sf.MouseButton(eM.EventMouseButton.Button), X: eM.Pos.X, Y: eM.Pos.Y}
+}
+
+//ToSFMLReleased : To sf.EventMouseButtonReleased
+func (eM EventMouseButtonWrapper) ToSFMLReleased() sf.EventMouseButtonReleased {
+	return sf.EventMouseButtonReleased{Button: sf.MouseButton(eM.EventMouseButton.Button), X: eM.Pos.X, Y: eM.Pos.Y}
+}
+
 //SFMouseButtonPressedToEventMouseButton sfml to Mouse buton
 func SFMouseButtonPressedToEventMouseButton(eM sf.EventMouseButtonPressed) EventMouseButton {
 	return EventMouseButton{Button: MouseButton(eM.Button), Clicked: true}
@@ -291,6 +307,16 @@ func SFMouseButtonPressedToEventMouseButton(eM sf.EventMouseButtonPressed) Event
 //SFMouseButtonReleasedToEventMouseButton sfml to mouse button
 func SFMouseButtonReleasedToEventMouseButton(eM sf.EventMouseButtonReleased) EventMouseButton {
 	return EventMouseButton{Button: MouseButton(eM.Button), Clicked: false}
+}
+
+//SFMouseButtonPressedToEventMouseButtonWrapper sfml to Mouse buton
+func SFMouseButtonPressedToEventMouseButtonWrapper(eM sf.EventMouseButtonPressed) EventMouseButtonWrapper {
+	return EventMouseButtonWrapper{EventMouseButton: EventMouseButton{Button: MouseButton(eM.Button), Clicked: true}, Pos: Vector2i{eM.X, eM.Y}}
+}
+
+//SFMouseButtonReleasedToEventMouseButtonWrapper sfml to mouse button
+func SFMouseButtonReleasedToEventMouseButtonWrapper(eM sf.EventMouseButtonReleased) EventMouseButtonWrapper {
+	return EventMouseButtonWrapper{EventMouseButton: EventMouseButton{Button: MouseButton(eM.Button), Clicked: false}, Pos: Vector2i{eM.X, eM.Y}}
 }
 
 //EventMouseButtonToSFMouseButtonPressed mousebutton to sfml
@@ -494,7 +520,7 @@ type EventMouseMoved struct {
 }
 
 //EventMouseMovedToSFML : Converts EventMouseMoved to the sfml version
-func (eM *EventMouseMoved) EventMouseMovedToSFML() sf.EventMouseMoved {
+func (eM EventMouseMoved) EventMouseMovedToSFML() sf.EventMouseMoved {
 	return sf.EventMouseMoved{X: eM.X, Y: eM.Y}
 }
 
@@ -552,7 +578,7 @@ type EventMouseWheelMoved struct {
 }
 
 //EventMouseWheelMovedToSFML : Converts EventMouseMoved to the sfml version
-func (eM *EventMouseWheelMoved) EventMouseWheelMovedToSFML() sf.EventMouseWheelMoved {
+func (eM EventMouseWheelMoved) EventMouseWheelMovedToSFML() sf.EventMouseWheelMoved {
 	return sf.EventMouseWheelMoved{X: eM.X, Y: eM.Y, Delta: eM.Delta}
 }
 
@@ -609,7 +635,7 @@ type EventTextEntered struct {
 
 //ToSFML : Converts EventTextEntered to the sfml version
 //TODO : Refactor all code to fit this naming scheme
-func (eM *EventTextEntered) ToSFML() sf.EventTextEntered {
+func (eM EventTextEntered) ToSFML() sf.EventTextEntered {
 	return sf.EventTextEntered{Char: eM.Char}
 }
 
