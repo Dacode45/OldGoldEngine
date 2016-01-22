@@ -8,68 +8,69 @@ import (
 )
 
 //Define Window Messages
-const (
+var (
 	//Messages for Output
-	WindowCreated = "game window created"
-	WindowClosed  = "game window closed"
+	WindowCreated = RegisterGameMessage("game window created")
+	WindowClosed  = RegisterGameMessage("game window closed")
 	//Payload Vector2u
 	//In: Resizes the Window
 	//Out: New Size of Window
-	WindowResized     = "game window resized"
-	WindowLostFocus   = "game window lost focus"
-	WindowGainedFocus = "game window gained focus"
+	WindowResized     = RegisterGameMessage("game window resized")
+	WindowLostFocus   = RegisterGameMessage("game window lost focus")
+	WindowGainedFocus = RegisterGameMessage("game window gained focus")
 	//Payload EventTextEntered
 	//In: Notifies Text Entered Observers
 	//Out: EventTextEntered object
-	WindowTextEntered = "game window text entered"
+	WindowTextEntered = RegisterGameMessage("game window text entered")
 	//Payload EventKey
 	//In: Calls KeyPressed Command
 	//Out: EventKey object
-	WindowKeyPressed = "game window key pressed"
+	WindowKeyPressed = RegisterGameMessage("game window key pressed")
 	//Payload EventKey
 	//In: Calls KeyReleased Command
 	//Out: EventKey object
-	WindowKeyReleased = "game window key released"
+	WindowKeyReleased = RegisterGameMessage("game window key released")
 	//Payload EventMouseWheelMoved
 	//In: Notifies MouseWheelMoved Observers
 	//Out: EventMouseWheelMoved object
-	WindowMouseWheelMoved = "game window mouse gWeel moved"
+	WindowMouseWheelMoved = RegisterGameMessage("game window mouse gWeel moved")
 	//Payload EventMouseButtonWrapper
 	//In: Calls MouseButtonPressed Command
 	//Out: EventMouseButtonWrapper
-	WindowMouseButtonPressed = "game window mouse button pressed"
+	WindowMouseButtonPressed = RegisterGameMessage("game window mouse button pressed")
 	//Payload EventMouseButtonWrapper
 	//In: Calls MouseButtonReleased Command
 	//Out: EventMouseButtonWrapper
-	WindowMouseButtonReleased = "game window mouse button released"
+	WindowMouseButtonReleased = RegisterGameMessage("game window mouse button released")
 	//Payload EventMouseMoved
 	//In: Notifies Mouse Moved Observers
 	//Out: EventMouseMoved object
-	WindowMouseMoved             = "game window mouse moved"
-	WindowMouseEntered           = "game window mouse entered"
-	WindowMouseLeft              = "game window mouse left"
-	WindowJoystickButtonPressed  = "game window joystick button pressed"
-	WindowJoystickButtonReleased = "game window joystick button released"
-	WindowJoystickMoved          = "game window joystick button Moved"
-	WindowJoystickConnected      = "game window joystick connected"
-	WindowJoystickDisconnected   = "game window joystick disconnected"
+	WindowMouseMoved = RegisterGameMessage("game window mouse moved")
+	//TODO add comments to these
+	WindowMouseEntered           = RegisterGameMessage("game window mouse entered")
+	WindowMouseLeft              = RegisterGameMessage("game window mouse left")
+	WindowJoystickButtonPressed  = RegisterGameMessage("game window joystick button pressed")
+	WindowJoystickButtonReleased = RegisterGameMessage("game window joystick button released")
+	WindowJoystickMoved          = RegisterGameMessage("game window joystick button Moved")
+	WindowJoystickConnected      = RegisterGameMessage("game window joystick connected")
+	WindowJoystickDisconnected   = RegisterGameMessage("game window joystick disconnected")
 
 	//Rendering
-	WindowStarted   = "game window started"
-	WindowStopped   = "game window stopped"
-	WindowPaused    = "game window paused"
-	WindowCantPause = "game window paused WARNING: Can't pause a closed or stopped window"
-	WindowRunning   = "game window running"
-	WindowSpinning  = "game window spinning WARNING: Game window is allowed to render, but has not been given the render signal. You should Deactivate or Stop the Game window if you don't want to render"
+	WindowStarted   = RegisterGameMessage("game window started")
+	WindowStopped   = RegisterGameMessage("game window stopped")
+	WindowPaused    = RegisterGameMessage("game window paused")
+	WindowCantPause = RegisterGameMessage("game window paused WARNING: Can't pause a closed or stopped window")
+	WindowRunning   = RegisterGameMessage("game window running")
+	WindowSpinning  = RegisterGameMessage("game window spinning WARNING: Game window is allowed to render, but has not been given the render signal. You should Deactivate or Stop the Game window if you don't want to render")
 	//Payload : int. TODO figure out what to do with this int
-	WindowNextFrame = "game window next frame"
-	WindowRendered  = "game window rendered"
+	WindowNextFrame = RegisterGameMessage("game window next frame")
+	WindowRendered  = RegisterGameMessage("game window rendered")
 )
 
 //WindowObserver : Implementations of this interface get an Window event and the event
 //Called on every window event. Decide for yourself if you handle it.
 type WindowObserver interface {
-	OnNotify(GameMessage)
+	OnWindowNotify(*GameMessage)
 }
 
 const (
@@ -94,15 +95,15 @@ type GameWindow struct {
 	InputSystem          InputSystem
 	game                 *Game
 	flow.Component
-	InputGameMessage  <-chan GameMessage
-	OutputGameMessage chan<- GameMessage
+	InputGameMessage  <-chan *GameMessage
+	OutputGameMessage chan<- *GameMessage
 }
 
 //GameWindowMessageBufferSize : Number of messages to keep in buffer
 const GameWindowMessageBufferSize = 5
 
 //OnInputGameMessage : What to do when a message happens
-func (gW *GameWindow) OnInputGameMessage(gM GameMessage) {
+func (gW *GameWindow) OnInputGameMessage(gM *GameMessage) {
 	//	fmt.Println("Window Received", gM)
 	switch gM.Message {
 	//Poll Events
@@ -152,13 +153,13 @@ func (gW *GameWindow) RemoveObserver(wO WindowObserver) {
 	}
 }
 
-func (gW *GameWindow) notify(gM GameMessage) {
+func (gW *GameWindow) notify(gM *GameMessage) {
 	//fmt.Println(gM)
 	gW.OutputGameMessage <- gM
 	//fmt.Println("From Window", gM)
 	//fmt.Println(<-gW.OutputGameMessage)
 	for _, o := range gW.observers {
-		o.OnNotify(gM)
+		o.OnWindowNotify(gM)
 	}
 }
 
@@ -187,48 +188,48 @@ func (gW *GameWindow) PollEvent() {
 		switch ev := event.(type) {
 		case sf.EventClosed:
 			gW.CloseWindow()
-			gW.notify(GameMessage{Message: WindowClosed})
+			gW.notify(NewGameMessage(WindowClosed, nil))
 		case sf.EventLostFocus:
-			gW.notify(GameMessage{Message: WindowLostFocus})
+			gW.notify(NewGameMessage(WindowLostFocus, nil))
 		case sf.EventGainedFocus:
-			gW.notify(GameMessage{Message: WindowLostFocus})
+			gW.notify(NewGameMessage(WindowLostFocus, nil))
 		case sf.EventResized:
-			gW.notify(GameMessage{Message: WindowResized, Payload: Vector2u{X: event.(sf.EventResized).Width, Y: event.(sf.EventResized).Height}})
+			gW.notify(NewGameMessage(WindowResized, Vector2u{X: event.(sf.EventResized).Width, Y: event.(sf.EventResized).Height}))
 		case sf.EventJoystickButtonPressed:
-			gW.notify(GameMessage{Message: WindowJoystickButtonPressed})
+			gW.notify(NewGameMessage(WindowJoystickButtonPressed, nil))
 		case sf.EventJoystickButtonReleased:
-			gW.notify(GameMessage{Message: WindowJoystickButtonReleased})
+			gW.notify(NewGameMessage(WindowJoystickButtonReleased, nil))
 		case sf.EventJoystickConnected:
-			gW.notify(GameMessage{Message: WindowJoystickConnected})
+			gW.notify(NewGameMessage(WindowJoystickConnected, nil))
 		case sf.EventJoystickDisconnected:
-			gW.notify(GameMessage{Message: WindowJoystickDisconnected})
+			gW.notify(NewGameMessage(WindowJoystickDisconnected, nil))
 		case sf.EventJoystickMoved:
-			gW.notify(GameMessage{Message: WindowJoystickMoved})
+			gW.notify(NewGameMessage(WindowJoystickMoved, nil))
 		case sf.EventKeyPressed:
-			gW.notify(GameMessage{Message: WindowKeyPressed, Payload: SFEventKeyPressedToEventKey(event.(sf.EventKeyPressed))})
+			gW.notify(NewGameMessage(WindowKeyPressed, SFEventKeyPressedToEventKey(event.(sf.EventKeyPressed))))
 			gW.InputSystem.SetKeyPressed(ev)
 		case sf.EventKeyReleased:
-			gW.notify(GameMessage{Message: WindowKeyReleased, Payload: SFEventKeyReleasedToEventKey(event.(sf.EventKeyReleased))})
+			gW.notify(NewGameMessage(WindowKeyReleased, SFEventKeyReleasedToEventKey(event.(sf.EventKeyReleased))))
 			gW.InputSystem.SetKeyReleased(ev)
 		case sf.EventTextEntered:
 			gW.InputSystem.SetTextEntered(ev)
-			gW.notify(GameMessage{Message: WindowTextEntered, Payload: SFEventTextEnteredToEventTextEntered(event.(sf.EventTextEntered))})
+			gW.notify(NewGameMessage(WindowTextEntered, SFEventTextEnteredToEventTextEntered(event.(sf.EventTextEntered))))
 		case sf.EventMouseButtonPressed:
-			gW.notify(GameMessage{Message: WindowMouseButtonPressed, Payload: SFMouseButtonPressedToEventMouseButtonWrapper(event.(sf.EventMouseButtonPressed))})
+			gW.notify(NewGameMessage(WindowMouseButtonPressed, SFMouseButtonPressedToEventMouseButtonWrapper(event.(sf.EventMouseButtonPressed))))
 			gW.InputSystem.SetMouseButtonPressed(ev)
 		case sf.EventMouseButtonReleased:
-			gW.notify(GameMessage{Message: WindowMouseButtonReleased, Payload: SFMouseButtonReleasedToEventMouseButtonWrapper(event.(sf.EventMouseButtonReleased))})
+			gW.notify(NewGameMessage(WindowMouseButtonReleased, SFMouseButtonReleasedToEventMouseButtonWrapper(event.(sf.EventMouseButtonReleased))))
 			gW.InputSystem.SetMouseButtonReleased(ev)
 		case sf.EventMouseMoved:
-			gW.notify(GameMessage{Message: WindowMouseMoved, Payload: SFEventMouseMovedToEventMouseMoved(event.(sf.EventMouseMoved))})
+			gW.notify(NewGameMessage(WindowMouseMoved, SFEventMouseMovedToEventMouseMoved(event.(sf.EventMouseMoved))))
 			gW.InputSystem.SetMouseMove(ev)
 		case sf.EventMouseWheelMoved:
-			gW.notify(GameMessage{Message: WindowMouseWheelMoved, Payload: SFEventMouseWheelMovedToEventMouseMoved(event.(sf.EventMouseWheelMoved))})
+			gW.notify(NewGameMessage(WindowMouseWheelMoved, SFEventMouseWheelMovedToEventMouseMoved(event.(sf.EventMouseWheelMoved))))
 			gW.InputSystem.SetMouseWheelMove(ev)
 		case sf.EventMouseEntered:
-			gW.notify(GameMessage{Message: WindowMouseEntered})
+			gW.notify(NewGameMessage(WindowMouseEntered, nil))
 		case sf.EventMouseLeft:
-			gW.notify(GameMessage{Message: WindowMouseLeft})
+			gW.notify(NewGameMessage(WindowMouseLeft, nil))
 		}
 	}
 }
@@ -255,7 +256,7 @@ func (gW *GameWindow) Stop() {
 	//fmt.Println("end stop")
 	close(gW.renderState)
 	close(gW.renderStateProcessed)
-	gW.notify(GameMessage{Message: WindowStopped})
+	gW.notify(NewGameMessage(WindowStopped, nil))
 }
 
 //Deactivate : Pauses but does not stop the window.
@@ -268,7 +269,7 @@ func (gW *GameWindow) Deactivate() {
 
 		gW.renderState <- RenderPaused
 		<-gW.renderStateProcessed
-		gW.notify(GameMessage{Message: WindowPaused})
+		gW.notify(NewGameMessage(WindowPaused, nil))
 
 	}
 }
@@ -284,7 +285,7 @@ func (gW *GameWindow) Activate() {
 		gW.renderState <- RenderRunning
 		<-gW.renderStateProcessed
 		//fmt.Println("In Activate")
-		gW.notify(GameMessage{Message: WindowRunning})
+		gW.notify(NewGameMessage(WindowRunning, nil))
 	}
 }
 
@@ -295,7 +296,7 @@ func (gW *GameWindow) Start() {
 		gW.renderStateProcessed = make(chan int)
 		go gW.render()
 		<-gW.renderStateProcessed
-		gW.notify(GameMessage{Message: WindowStarted})
+		gW.notify(NewGameMessage(WindowStarted, nil))
 
 	}
 	gW.Activate()
@@ -349,8 +350,9 @@ func (gW *GameWindow) render() {
 			case <-gW.wait:
 				gW.renderWindow.Display()
 			default:
+				//TODO : Figue how to make this never happen
 				//GameWindow Spinning is bad. Address
-				gW.notify(GameMessage{Message: WindowSpinning})
+				gW.notify(NewGameMessage(WindowSpinning, nil))
 			}
 			//Actual work
 		}

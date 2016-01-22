@@ -9,16 +9,16 @@ import (
 
 type GameWindowListener struct {
 	flow.Component
-	InputGameMessage <-chan GameMessage
+	InputGameMessage <-chan *GameMessage
 	t                *testing.T
 }
 
-func (gW *GameWindowListener) OnInputGameMessage(gM GameMessage) {
-	gW.t.Log(gM.Message)
+func (gW *GameWindowListener) OnInputGameMessage(gM *GameMessage) {
+	gW.t.Log(gM.String())
 	GameWindowMessage <- gM
 }
 
-var GameWindowMessage = make(chan GameMessage)
+var GameWindowMessage = make(chan *GameMessage)
 
 type GameWindowTester struct {
 	flow.Graph
@@ -39,21 +39,22 @@ func SetupGameWindowTest(t *testing.T) (*GameWindowTester, *GameWindow) {
 }
 
 func TestGameWindow(t *testing.T) {
+	helloMessage := RegisterGameMessage("hello test Message")
 	gT, _ := SetupGameWindowTest(t)
 
-	in := make(chan GameMessage)
+	in := make(chan *GameMessage)
 	gT.SetInPort("In", in)
 	flow.RunNet(gT)
-	in <- GameMessage{Message: "hello"}
+	in <- NewGameMessage(helloMessage, nil)
 
 	t.Log("Messages Propagated", <-GameWindowMessage)
 
-	in <- GameMessage{Message: WindowRunning}
+	in <- NewGameMessage(WindowRunning, nil)
 	for (<-GameWindowMessage).Message != WindowRunning {
 		runtime.Gosched()
 	}
 	t.Log("Messages Propagated")
-	in <- GameMessage{Message: WindowClosed}
+	in <- NewGameMessage(WindowClosed, nil)
 	for msg := <-GameWindowMessage; msg.Message != WindowClosed; msg = <-GameWindowMessage {
 		t.Log("Recieved", msg)
 	}
